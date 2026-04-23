@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#c9a227"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>SERVING — Sistema v5.1</title>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="icon" href="/icon-192.png"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+<script>
+// Apply saved theme instantly to avoid flash
+try{if(localStorage.getItem('serving_theme')==='light')document.body.classList.add('light');}catch(e){}
+</script>
+<button id="hamburger" onclick="toggleSidebar()" aria-label="Menú">☰</button>
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div id="app">
+
+<!-- KIOSK LOCK OVERLAY -->
+<div id="kiosk-lock-overlay">
+  <div class="kiosk-lock-box">
+    <div style="font-size:1.8rem;margin-bottom:.5rem">🔒</div>
+    <div style="font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:.3rem">Modo Pañol Activo</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:1.5rem">Ingresa la clave de administrador para salir del modo kiosco</div>
+    <input id="kiosk-unlock-pass" type="password" placeholder="Contraseña admin" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;text-align:center;margin-bottom:.8rem"/>
+    <button class="btn btn-p" style="width:100%;margin-bottom:.6rem" onclick="desbloquearKiosko()">Desbloquear</button>
+    <button class="btn btn-o" style="width:100%;font-size:.78rem" onclick="cerrarLockOverlay()">Cancelar — volver al pañol</button>
+    <div id="kiosk-unlock-error" style="color:var(--red);font-size:.75rem;margin-top:.6rem;display:none">Contraseña incorrecta</div>
+  </div>
+</div>
+
+<!-- FLOATING ADMIN BUTTON (visible in kiosk mode) -->
+<button id="kiosk-float-btn" onclick="mostrarLockOverlay()" title="Salir del modo pañol">⚙ Admin</button>
+
+<div id="login">
+  <button class="ltheme" onclick="toggleTheme()" id="login-theme-btn">☀ Tema claro</button>
+  <div class="lbox">
+    <div class="llogo">
+      <div class="ship">⚓</div>
+      <div class="brand">SERVING</div>
+      <div class="sub">Sistema Integral · Proyecto SIMA</div>
+    </div>
+    <div class="lf">
+      <label>Usuario o email</label><input id="lu" type="text" value="admin" placeholder="usuario o email"/>
+      <label>Contraseña</label><input id="lp" type="password" value="1234"/>
+      <button class="lbtn" id="btn-login-submit">▶ Ingresar</button>
+    </div>
+
+  </div>
+</div>
+
+<nav id="sidebar" style="display:none">
+  <div class="sbrand"><span class="ico">⚓</span><div><div class="brandname">SERVING</div><div class="subn">Gestión Integral</div><div class="sima-tag">Proyecto SIMA</div></div></div>
+  <div id="nav-content"></div>
+  <div class="sfooter">
+    <div class="uchip"><div class="uav" id="uav">AD</div><div><div class="uname" id="uname">Admin</div><div class="urole" id="urole">Administrador</div></div></div>
+    <div class="sfooter-btns">
+      <button class="logout-btn" onclick="doLogout()">✕ Salir</button>
+      <button class="theme-btn" id="theme-sb-btn" onclick="toggleTheme()">☀ Claro</button>
+    </div>
+    <button onclick="abrirCambiarContrasena()" style="width:100%;margin-top:5px;padding:4px 8px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:.68rem;cursor:pointer;font-family:inherit">🔑 Cambiar contraseña</button>
+  </div>
+</nav>
+
+<main id="main" style="display:none">
+
+<!-- DASHBOARD -->
+<div id="p-dashboard" class="page">
+  <div class="ph"><div class="ptitle"><span>SERVING</span> — Panel Principal</div><div style="display:flex;align-items:center;gap:8px"><span class="sima-badge">SIMA</span><span id="dash-fecha" style="font-size:.74rem;color:var(--muted)"></span></div></div>
+  <div id="birthday-banner"></div>
+  <div class="sgrid">
+    <div class="sc"><div class="sc-lbl">Activos SERVING</div><div class="sc-val c-gold" id="ds-activos">0</div></div>
+    <div class="sc"><div class="sc-lbl">En préstamo</div><div class="sc-val c-red" id="ds-prestamos">0</div></div>
+    <div class="sc"><div class="sc-lbl">Piezas SIMA</div><div class="sc-val c-blue" id="ds-sima">0</div></div>
+    <div class="sc"><div class="sc-lbl">Asistencia hoy</div><div class="sc-val c-green" id="ds-asis">0</div></div>
+  </div>
+  <div class="sgrid">
+    <div class="sc"><div class="sc-lbl">Stock bajo</div><div class="sc-val c-red" id="ds-stock">0</div></div>
+    <div class="sc"><div class="sc-lbl">Mantenimiento</div><div class="sc-val c-purple" id="ds-mant">0</div></div>
+    <div class="sc"><div class="sc-lbl">Proyectos activos</div><div class="sc-val c-orange" id="ds-proy">0</div></div>
+    <div class="sc"><div class="sc-lbl">Trabajadores</div><div class="sc-val c-blue" id="ds-trab">0</div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ctitle">Últimos movimientos</div><table><thead><tr><th>Activo</th><th>Acción</th><th>Personal</th><th>Hora</th></tr></thead><tbody id="dt-movs"></tbody></table></div>
+    <div class="card"><div class="ctitle">Alertas</div><div id="dt-alertas"></div></div>
+  </div>
+</div>
+
+<!-- ACTIVOS -->
+<div id="p-activos" class="page">
+  <div class="ph"><div class="ptitle">Activos <span>SERVING</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-o btn-sm" onclick="goPage('p-qrview')">🔲 Vista QR</button>
+      <button class="btn btn-p" onclick="abrirModalActivo()">+ Nuevo activo</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('act','todos',this)">Todos</button>
+    <button class="tab" onclick="switchTab('act','maquinaria',this)">Maquinaria</button>
+    <button class="tab" onclick="switchTab('act','herramientas',this)">Herramientas</button>
+    <button class="tab" onclick="switchTab('act','epp-inv',this)">EPP Stock</button>
+    <button class="tab" onclick="switchTab('act','consumibles',this)">Consumibles</button>
+  </div>
+  <div id="act-todos">
+    <div class="sbar">
+      <input id="sa-q" type="text" placeholder="🔍 Buscar código, nombre, categoría..." oninput="renderActivos('todos')"/>
+      <select id="sa-est" onchange="renderActivos('todos')"><option value="">Todos los estados</option><option>Operativo</option><option>En préstamo</option><option>Mantenimiento</option><option>Dado de baja</option></select>
+    </div>
+    <div id="lista-activos-todos"></div>
+  </div>
+  <div id="act-maquinaria" style="display:none"><div class="sbar"><input type="text" id="sq-maq" placeholder="🔍 Buscar maquinaria..." oninput="renderActivos('maquinaria')"/></div><div id="lista-activos-maquinaria"></div></div>
+  <div id="act-herramientas" style="display:none"><div class="sbar"><input type="text" id="sq-herr" placeholder="🔍 Buscar herramienta..." oninput="renderActivos('herramientas')"/></div><div id="lista-activos-herramientas"></div></div>
+  <div id="act-epp-inv" style="display:none"><div class="sbar"><input type="text" id="sq-epp" placeholder="🔍 Buscar EPP..." oninput="renderActivos('epp-inv')"/></div><div id="lista-activos-epp-inv"></div></div>
+  <div id="act-consumibles" style="display:none"><div class="sbar"><input type="text" id="sq-cons" placeholder="🔍 Buscar consumible..." oninput="renderActivos('consumibles')"/></div><div id="lista-activos-consumibles"></div></div>
+</div>
+
+<!-- DETALLE ACTIVO -->
+<div id="p-activo-detalle" class="page">
+  <div class="ph"><div class="ptitle">Ficha de <span>Activo</span></div><button class="btn btn-o btn-sm" onclick="goPage('p-activos')">← Volver</button></div>
+  <div id="det-content"></div>
+</div>
+
+<!-- QR VIEW -->
+<div id="p-qrview" class="page">
+  <div class="ph"><div class="ptitle">Códigos <span>QR / ID</span></div><button class="btn btn-o btn-sm" onclick="goPage('p-activos')">← Volver</button></div>
+  <div class="sbar"><input id="qr-q" type="text" placeholder="🔍 Filtrar activos..." oninput="renderQRView()"/></div>
+  <div id="qr-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px"></div>
+</div>
+
+<!-- PRÉSTAMOS -->
+<div id="p-prestamos" class="page">
+  <div class="ph"><div class="ptitle">Control de <span>Préstamos</span></div></div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('pr','rapido',this)">⚡ Registro rápido</button>
+    <button class="tab" onclick="switchTab('pr','activos',this)">Activos</button>
+    <button class="tab" onclick="switchTab('pr','historial',this)">Historial</button>
+  </div>
+
+  <!-- TAB: REGISTRO RÁPIDO -->
+  <div id="pr-rapido">
+    <div class="card">
+      <div class="ctitle" style="margin-bottom:.6rem">
+        ⚡ Registro rápido — escribe y presiona Enter para avanzar
+        <span style="font-size:.65rem;color:var(--muted);font-weight:400;margin-left:8px">Fecha y almacenero se llenan solos</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="t-prest-rapido" style="min-width:560px">
+          <thead><tr>
+            <th style="width:28px">#</th>
+            <th>Activo <span style="font-weight:400;color:var(--muted);font-size:.65rem">código o nombre</span></th>
+            <th>Trabajador <span style="font-weight:400;color:var(--muted);font-size:.65rem">nombre o DNI</span></th>
+            <th style="width:100px">Fecha</th>
+            <th style="width:28px"></th>
+          </tr></thead>
+          <tbody id="t-prest-filas"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:.8rem;flex-wrap:wrap">
+        <button class="btn btn-o btn-sm" onclick="agregarFilaPrestamo()">+ Fila</button>
+        <button class="btn btn-p" onclick="confirmarFilasPrestamo()">✓ Registrar todos</button>
+        <span id="prest-rapido-msg" style="font-size:.75rem;color:var(--muted);align-self:center"></span>
+      </div>
+    </div>
+    <!-- Autocomplete dropdowns -->
+    <div id="ac-activo-drop" style="display:none;position:fixed;z-index:300;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.4);max-height:220px;overflow-y:auto;min-width:260px"></div>
+    <div id="ac-trab-drop" style="display:none;position:fixed;z-index:300;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.4);max-height:220px;overflow-y:auto;min-width:260px"></div>
+  </div>
+
+  <!-- TAB: ACTIVOS -->
+  <div id="pr-activos" style="display:none">
+    <div class="sbar"><input id="sq-prest" type="text" placeholder="🔍 Buscar por activo o trabajador..." oninput="renderPrestamos()"/></div>
+    <div class="card"><div class="ctitle">Préstamos activos</div>
+    <table><thead><tr><th style="width:28px">#</th><th>Código</th><th>Activo</th><th>Trabajador</th><th>F. Entrega</th><th>Días</th><th>Almacenero</th><th>Acción</th></tr></thead><tbody id="t-prest-act"></tbody></table></div>
+  </div>
+
+  <!-- TAB: HISTORIAL -->
+  <div id="pr-historial" style="display:none">
+    <div class="sbar"><input id="sq-prest-h" type="text" placeholder="🔍 Buscar en historial..." oninput="renderPrestamosHist()"/></div>
+    <div class="card"><div class="ctitle">Historial completo</div>
+    <table><thead><tr><th style="width:28px">#</th><th>Código</th><th>Activo</th><th>Trabajador</th><th>Entregado</th><th>Devuelto</th><th>Estado</th></tr></thead><tbody id="t-prest-hist"></tbody></table></div>
+  </div>
+</div>
+
+<!-- CONSUMIBLES -->
+<div id="p-consumibles" class="page">
+  <div class="ph"><div class="ptitle">Consumibles y <span>Reposición</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-o btn-sm" onclick="openModal('m-cons-uso')">📋 Registrar uso</button>
+      <button class="btn btn-p" onclick="openModal('m-cons-compra')">+ Registrar compra</button>
+    </div>
+  </div>
+  <div class="sgrid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="sc"><div class="sc-lbl">Total tipos</div><div class="sc-val c-blue" id="cs-total">0</div></div>
+    <div class="sc"><div class="sc-lbl">Stock bajo</div><div class="sc-val c-red" id="cs-bajo">0</div></div>
+    <div class="sc"><div class="sc-lbl">Movimientos hoy</div><div class="sc-val c-gold" id="cs-movs">0</div></div>
+  </div>
+  <div class="sbar"><input id="sq-consumibles" type="text" placeholder="🔍 Buscar consumible..." oninput="renderConsumibles()"/></div>
+  <div class="card"><div class="ctitle">Inventario</div>
+  <table><thead><tr><th style="width:28px">#</th><th>Código</th><th>Descripción</th><th>Unidad</th><th>Stock</th><th>Mín.</th><th>Nivel</th><th>Estado</th><th></th></tr></thead><tbody id="t-consumibles"></tbody></table></div>
+  <div class="card"><div class="ctitle">Historial de movimientos</div>
+  <table><thead><tr><th style="width:28px">#</th><th>Fecha</th><th>Código</th><th>Tipo</th><th>Cantidad</th><th>Trabajador</th><th>Referencia</th></tr></thead><tbody id="t-cons-movs"></tbody></table></div>
+</div>
+
+<!-- MANTENIMIENTO -->
+<div id="p-mantenimiento" class="page">
+  <div class="ph"><div class="ptitle">Mantenimiento de <span>Activos</span></div><button class="btn btn-p" onclick="openModal('m-mant')">+ Registrar mantenimiento</button></div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('mt','pendiente',this)">Pendiente / En proceso</button>
+    <button class="tab" onclick="switchTab('mt','historial',this)">Historial</button>
+  </div>
+  <div id="mt-pendiente"><div class="sbar"><input type="text" id="sq-mant" placeholder="🔍 Buscar activo en mantenimiento..." oninput="renderMantenimiento()"/></div><div id="lista-mant-pend"></div></div>
+  <div id="mt-historial" style="display:none"><div class="card"><div class="ctitle">Historial</div><table><thead><tr><th style="width:28px">#</th><th>Activo</th><th>Tipo</th><th>Fecha</th><th>Técnico</th><th>Costo</th><th>Estado</th></tr></thead><tbody id="t-mant-hist"></tbody></table></div></div>
+</div>
+
+<!-- PIEZAS SIMA -->
+<div id="p-sima" class="page">
+  <div class="ph"><div class="ptitle">Piezas / Materiales <span>SIMA</span></div><button class="btn btn-p" onclick="openModal('m-sima')">+ Registrar pieza SIMA</button></div>
+  <div class="alert al-info">Materiales y piezas de <b>SIMA</b> para la construcción del proyecto. El almacenero controla entradas, salidas y ubicación.</div>
+  <div class="sgrid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="sc"><div class="sc-lbl">Total piezas</div><div class="sc-val c-blue" id="sima-total">0</div></div>
+    <div class="sc"><div class="sc-lbl">En uso</div><div class="sc-val c-gold" id="sima-uso">0</div></div>
+    <div class="sc"><div class="sc-lbl">En almacén</div><div class="sc-val c-green" id="sima-stock">0</div></div>
+  </div>
+  <div class="sbar"><input id="sq-sima" type="text" placeholder="🔍 Buscar pieza, módulo, código..." oninput="renderSIMA()"/></div>
+  <div class="card"><div class="ctitle">Inventario SIMA <span class="sima-badge">SIMA</span></div>
+  <table><thead><tr><th style="width:28px">#</th><th>Código</th><th>Descripción</th><th>Módulo</th><th>Cant.</th><th>Disp.</th><th>Ubic.</th><th>Estado</th><th></th></tr></thead><tbody id="t-sima"></tbody></table></div>
+  <div class="card"><div class="ctitle">Historial movimientos SIMA</div>
+  <table><thead><tr><th style="width:28px">#</th><th>Fecha</th><th>Pieza</th><th>Acción</th><th>Cant.</th><th>Personal</th><th>Obs.</th></tr></thead><tbody id="t-sima-movs"></tbody></table></div>
+</div>
+
+<!-- EPP -->
+<div id="p-epp" class="page">
+  <div class="ph"><div class="ptitle">EPP – <span>Equipos de Protección</span></div><button class="btn btn-p" onclick="openModal('m-epp-asig')">+ Asignar EPP</button></div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('ep','solicitudes',this)">Solicitudes</button>
+    <button class="tab" onclick="switchTab('ep','entregas',this)">Entregas</button>
+    <button class="tab" onclick="switchTab('ep','auditoria',this)">Auditoría</button>
+  </div>
+  <div id="ep-solicitudes"><div class="sbar"><input type="text" id="sq-epp-sol" placeholder="🔍 Buscar solicitud..." oninput="renderEPP()"/></div><div id="lista-sol-epp"></div></div>
+  <div id="ep-entregas" style="display:none">
+    <div class="sbar"><input type="text" id="sq-epp-ent" placeholder="🔍 Buscar trabajador o EPP..." oninput="renderEPP()"/></div>
+    <div class="card"><div class="ctitle">Registro de entregas</div><table><thead><tr><th style="width:28px">#</th><th>Trabajador</th><th>EPP</th><th>Fecha</th><th>Talla</th><th>Entregó</th></tr></thead><tbody id="t-epp-ent"></tbody></table></div>
+  </div>
+  <div id="ep-auditoria" style="display:none"><div class="alert al-info">Vista de auditoría — EPP por trabajador.</div><div id="aud-epp-content"></div></div>
+</div>
+
+<!-- EPP SOLICITUD (trabajador) -->
+<div id="p-epp-sol" class="page">
+  <div class="ph"><div class="ptitle">Solicitar <span>EPP</span></div></div>
+  <div class="alert al-info">Solicita tu EPP. El administrador procesará tu solicitud.</div>
+  <div class="card">
+    <div class="ctitle">Nueva solicitud</div>
+    <div class="frow">
+      <div class="ff"><label>Tipo de EPP</label><select id="ss-tipo"><option>Casco de seguridad</option><option>Botas de punta de acero</option><option>Guantes de cuero</option><option>Lentes de seguridad</option><option>Chaleco reflectivo</option><option>Protector auditivo</option><option>Mascarilla respiratoria</option><option>Arnés de seguridad</option><option>Careta de soldar</option><option>Ropa ignífuga</option></select></div>
+      <div class="ff"><label>Talla</label><input id="ss-talla" placeholder="L, 42, M..."/></div>
+    </div>
+    <div class="frow">
+      <div class="ff"><label>Motivo</label><input id="ss-motivo" placeholder="Desgaste, pérdida, nuevo ingreso..."/></div>
+      <div class="ff"><label>Urgencia</label><select id="ss-urg"><option>Normal</option><option>Urgente</option></select></div>
+    </div>
+    <div class="factions"><button class="btn btn-p" onclick="enviarSolicitudEPP()">Enviar solicitud</button></div>
+  </div>
+  <div class="card"><div class="ctitle">Mi EPP registrado</div><table><thead><tr><th style="width:28px">#</th><th>EPP</th><th>Fecha</th><th>Talla</th><th>Estado</th></tr></thead><tbody id="t-mis-epp"></tbody></table></div>
+</div>
+
+<!-- MIS HERRAMIENTAS (trabajador) -->
+<div id="p-mis-herr" class="page">
+  <div class="ph"><div class="ptitle">Mis <span>Préstamos</span></div></div>
+  <div class="alert al-info">Todo lo que tienes actualmente en préstamo: herramientas, maquinaria y EPP.</div>
+  <div class="card">
+    <div class="ctitle">Préstamos activos a mi nombre</div>
+    <table><thead><tr><th style="width:28px">#</th><th>Código</th><th>Tipo</th><th>Descripción</th><th>Fecha entrega</th><th>Días</th><th>Entregó</th></tr></thead><tbody id="t-mis-herr"></tbody></table>
+  </div>
+  <div class="card" style="margin-top:.8rem">
+    <div class="ctitle">Mi historial de préstamos</div>
+    <table><thead><tr><th style="width:28px">#</th><th>Código</th><th>Tipo</th><th>Descripción</th><th>Fecha entrega</th><th>Devuelto</th></tr></thead><tbody id="t-mis-herr-hist"></tbody></table>
+  </div>
+</div>
+
+<!-- RECEPCIÓN DE PIEZAS -->
+<div id="p-recepcion" class="page">
+  <div class="ph">
+    <div class="ptitle">📦 Recepción de <span>Piezas</span></div>
+    <button class="btn btn-p" onclick="nuevoVale()">+ Nuevo vale</button>
+  </div>
+
+  <!-- Barra de herramientas -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:.9rem;flex-wrap:wrap">
+    <input id="rec-buscador" type="text" placeholder="🔍 Buscar pieza por código, tipo o vale..."
+      oninput="filtrarPiezas()"
+      style="flex:1;min-width:180px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.83rem"/>
+    <button class="btn btn-o btn-sm" onclick="togglePrecioKg()" id="btn-precio-kg">⚖ Precio / kg</button>
+  </div>
+
+  <!-- Precio por kg (colapsable) -->
+  <div id="rec-precio-panel" style="display:none;margin-bottom:.9rem">
+    <div class="card" style="padding:.8rem 1rem">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <label style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Precio por kg (S/)</label>
+        <input id="rec-precio-kg" type="number" step="0.01" value="0" placeholder="0.00"
+          oninput="recalcularTotales()"
+          style="width:120px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem"/>
+        <span style="font-size:.78rem;color:var(--muted)">Aplica a todas las piezas en kg</span>
+        <button class="btn btn-p btn-sm" onclick="recalcularTotales();togglePrecioKg()">✓ Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumen general -->
+  <div id="rec-resumen" class="sgrid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem"></div>
+
+  <!-- Lista de vales -->
+  <div id="rec-vales"></div>
+</div>
+
+<!-- MI PAGO (trabajador) -->
+<div id="p-mi-pago" class="page">
+  <div class="ph"><div class="ptitle">Mi <span>Pago</span></div></div>
+
+  <!-- Selector de semana -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="ctitle">Período</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="ff" style="flex:1;min-width:160px">
+        <label>Mes</label>
+        <input type="month" id="mipago-mes" oninput="renderMiPago()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit"/>
+      </div>
+      <button class="btn btn-o" onclick="document.getElementById('mipago-mes').value=today().slice(0,7);renderMiPago()">Este mes</button>
+    </div>
+  </div>
+
+  <!-- Resumen total -->
+  <div id="mipago-resumen" class="sgrid" style="grid-template-columns:repeat(2,1fr);margin-bottom:1rem"></div>
+
+  <!-- Semanas detalladas -->
+  <div id="mipago-semanas"></div>
+
+  <!-- Detalle diario -->
+  <div class="card" style="margin-top:.8rem">
+    <div class="ctitle">Detalle día a día</div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Fecha</th><th>Día</th><th>Entrada</th><th>Salida</th>
+        <th>H. Normal</th><th>H. Extra</th><th>Monto</th>
+      </tr></thead>
+      <tbody id="mipago-detalle"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ASISTENCIA -->
+<div id="p-asistencia" class="page">
+  <div class="ph"><div class="ptitle">Control de <span>Asistencia</span></div></div>
+  <div class="clock-card">
+    <div class="clock-val" id="reloj">00:00:00</div>
+    <div class="clock-date" id="rfecha"></div>
+    <div id="asis-selector-wrap" style="display:none;margin-bottom:.8rem">
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">¿Quién está marcando?</div>
+      <select id="asis-trabajador-sel" onchange="updateRegBtn();renderMiAsistencia()" style="padding:8px 14px;background:var(--bg3);border:2px solid var(--gold);border-radius:6px;color:var(--text);font-family:inherit;font-size:.88rem;outline:none;width:100%;max-width:320px">
+        <option value="">— Selecciona tu nombre —</option>
+      </select>
+    </div>
+    <div><span id="loc-badge" class="loc-badge loc-chk">Verificando GPS...</span></div>
+    <div style="margin-top:.9rem"><button id="btn-reg" class="reg-btn reg-in" disabled onclick="marcarAsistencia()">▶ Marcar entrada</button></div>
+    <div id="turno-estado" style="font-size:.74rem;color:var(--muted);margin-top:.8rem"></div>
+    <!-- Bloque de notificaciones automáticas -->
+    <div id="notif-info-block" style="margin-top:1rem;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);font-size:.75rem;color:var(--muted);display:none">
+      <div style="color:var(--gold);font-weight:700;margin-bottom:4px">⏰ Marcación automática activa</div>
+      <div>• <b>Entrada</b>: se registra sola a las <b>08:00</b> si no marcaste antes</div>
+      <div>• <b>Salida</b>: te pregunto a las 17h, 18h y 19h si no marcaste</div>
+      <div id="notif-sw-note" style="margin-top:4px"></div>
+    </div>
+    <div id="notif-btn-wrap" style="margin-top:.6rem;display:none">
+      <button class="btn btn-o" style="font-size:.74rem;padding:5px 12px" onclick="activarNotificacionesManual()">
+        🔔 Activar notificaciones de salida
+      </button>
+    </div>
+  </div>
+  <!-- Panel admin/almacenero -->
+  <div id="admin-asis-panel" style="display:none">
+    <div class="wa-panel">
+      <h4>📲 Enviar lista de asistencia por WhatsApp</h4>
+      <div class="frow">
+        <div class="ff"><label>Número o grupo (con código país)</label><input id="wa-numero" placeholder="51987654321 (sin + ni espacios)" value="51987654321"/></div>
+        <div class="ff"><label>Propósito del mensaje</label><select id="wa-proposito"><option value="menu">Pedido de menú</option><option value="reporte">Reporte de asistencia</option><option value="ambos">Menú + reporte</option></select></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-wa" onclick="enviarWA()">📲 Abrir WhatsApp con lista</button>
+        <button class="btn btn-o btn-sm" onclick="copiarListaAsistencia()">📋 Copiar lista</button>
+      </div>
+    </div>
+    <div class="card"><div class="ctitle">Asistencia hoy — todos</div><table><thead><tr><th>Trabajador</th><th>Entrada</th><th>Salida</th><th>H. Normal</th><th>H. Extra</th><th></th></tr></thead><tbody id="t-asis-general"></tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="ctitle" style="display:flex;align-items:center;justify-content:space-between">
+      Mi historial
+      <button class="btn btn-o btn-sm" onclick="abrirAgregarDiaAnterior()" style="font-size:.74rem;padding:5px 12px">
+        ➕ Agregar día anterior
+      </button>
+    </div>
+    <table><thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>H. Normal</th><th>H. Extra</th><th>Total</th></tr></thead><tbody id="t-mi-asis"></tbody></table>
+  </div>
+</div>
+
+<!-- HORAS Y PAGOS -->
+<div id="p-horas" class="page">
+  <div class="ph"><div class="ptitle">Horas <span>Hombre</span> y Pagos</div></div>
+  <div class="sbar">
+    <select id="fh-trab" onchange="renderHoras()" style="padding:8px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit"><option value="">Todos los trabajadores</option></select>
+    <input type="month" id="fh-mes" onchange="renderHoras()" style="padding:8px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit"/>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-o btn-sm" onclick="exportarHoras('dia')">📥 Por día</button>
+      <button class="btn btn-o btn-sm" onclick="exportarHoras('semana')">📥 Por semana</button>
+      <button class="btn btn-o btn-sm" onclick="exportarHoras('mes')">📥 Por mes</button>
+      <button class="btn btn-p btn-sm" onclick="exportarExcel()">📊 Exportar Excel</button>
+    </div>
+  </div>
+  <div id="horas-stats" class="sgrid" style="grid-template-columns:repeat(4,1fr)"></div>
+  <!-- Horas hombre resumen -->
+  <div class="card" id="hh-resumen" style="display:none">
+    <div class="ctitle">Horas Hombre por trabajador <span id="hh-periodo-label"></span></div>
+    <div id="hh-content"></div>
+  </div>
+  <div class="card"><div class="ctitle">Detalle de horas y pagos</div>
+  <table><thead><tr><th>Trabajador</th><th>Fecha</th><th>Contrato</th><th>H. Normal</th><th>H. Extra</th><th>Tarifa</th><th>H.Extra +25%</th><th>Total S/</th></tr></thead><tbody id="t-horas"></tbody></table></div>
+  <div id="sabados-container"></div>
+</div>
+
+<!-- TRABAJADORES -->
+<div id="p-trabajadores" class="page">
+  <div class="ph"><div class="ptitle">Gestión de <span>Trabajadores</span></div><button class="btn btn-p" onclick="abrirNuevoTrabajador()">+ Agregar</button></div>
+  <div class="sbar"><input id="st-q" type="text" placeholder="🔍 Buscar nombre, cargo, especialidad..." oninput="renderTrabajadores()"/></div>
+  <div id="cumple-prox" style="margin-bottom:.9rem"></div>
+  <div class="card"><table><thead><tr><th style="width:28px">#</th><th>Nombre</th><th>DNI</th><th>Cargo</th><th>Contrato</th><th>Tarifa/h</th><th>Cumpleaños</th><th>Estado</th><th></th></tr></thead><tbody id="t-trabajadores"></tbody></table></div>
+</div>
+
+<!-- USUARIOS -->
+<div id="p-usuarios" class="page">
+  <div class="ph"><div class="ptitle">Usuarios del <span>Sistema</span></div><button class="btn btn-p" onclick="openModal('m-usuario')">+ Agregar</button></div>
+  <div class="sbar"><input type="text" id="sq-usuarios" placeholder="🔍 Buscar usuario..." oninput="renderUsuarios()"/></div>
+  <div class="card"><table><thead><tr><th style="width:28px">#</th><th>Nombre</th><th>Usuario</th><th>Nivel</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="t-usuarios"></tbody></table></div>
+</div>
+
+<!-- PROYECTOS -->
+<div id="p-proyectos" class="page">
+  <div class="ph"><div class="ptitle">Avance de <span>Proyectos</span></div><button class="btn btn-p" onclick="openModal('m-proyecto')">+ Nuevo proyecto</button></div>
+  <div class="alert al-info">Licitaciones ganadas y sus avances: BALOG 1, BALOG 2, OPV, etc.</div>
+  <div class="sbar"><input id="sq-proy" type="text" placeholder="🔍 Buscar proyecto..." oninput="renderProyectos()"/></div>
+  <div id="lista-proyectos"></div>
+</div>
+
+<!-- ASISTENTE IA / VOZ -->
+<div id="p-voz" class="page" style="padding:0">
+  <!-- PANTALLA PRINCIPAL DEL ASISTENTE — OCUPA TODA LA PANTALLA -->
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:1.5rem 1rem;background:var(--bg)">
+
+    <!-- ENCABEZADO -->
+    <div style="text-align:center;margin-bottom:1.5rem;width:100%;max-width:600px">
+      <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:.3rem">⚓ SERVING — Pañol</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text)">Asistente de voz</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:.4rem;font-size:.72rem;color:var(--green)">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>
+        Modo conversación — habla, el trabajador pide, tú confirmas
+      </div>
+    </div>
+
+    <!-- INDICADOR PRINCIPAL — grande, visible desde lejos -->
+    <div id="voz-indicador-principal" style="width:140px;height:140px;border-radius:50%;background:var(--bg2);border:4px solid var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:1.2rem;cursor:pointer;transition:all .3s;flex-shrink:0" onclick="toggleSiempreActivo()">
+      <div id="voz-mic-big" style="font-size:2.8rem;line-height:1;margin-bottom:.2rem">🎙</div>
+      <div id="voz-estado-label" style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:center;padding:0 8px">Toca para activar</div>
+    </div>
+
+    <!-- LO QUE ESCUCHÓ -->
+    <div id="voz-escucho-wrap" style="width:100%;max-width:600px;min-height:48px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem 1.1rem;margin-bottom:.8rem;text-align:center;display:none">
+      <div id="voz-conv-label" style="font-size:.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:.3rem">Conversación</div>
+      <div id="voz-transcript" style="font-size:.95rem;color:var(--text);font-style:italic"></div>
+    </div>
+
+    <!-- RESULTADO — aparece y desaparece solo -->
+    <div id="voz-resultado-rapido" style="width:100%;max-width:600px;display:none;margin-bottom:.8rem">
+      <div id="voz-resultado-contenido" style="border-radius:10px;padding:1rem 1.2rem;text-align:center"></div>
+    </div>
+
+    <!-- SOLICITA CONFIRMACIÓN solo cuando hay duda -->
+    <div id="voz-confirmacion" style="display:none;width:100%;max-width:600px">
+      <div style="background:var(--bg2);border:2px solid var(--gold);border-radius:10px;padding:1.1rem">
+        <div style="font-size:.7rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">¿Es esto correcto?</div>
+        <div id="voz-conf-texto" style="font-size:.92rem;color:var(--text);margin-bottom:1rem;font-weight:600"></div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-s" style="flex:1;font-size:.88rem;padding:12px" onclick="confirmarAccionVoz()">✓ Sí, registrar</button>
+          <button class="btn btn-d btn-sm" style="padding:12px 16px" onclick="cancelarAccionVoz()">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API KEY — colapsada por defecto -->
+    <details style="width:100%;max-width:600px;margin-top:1rem">
+      <summary style="font-size:.72rem;color:var(--dim);cursor:pointer;padding:.4rem 0;list-style:none">⚙ Configuración IA (opcional)</summary>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.9rem;margin-top:.5rem">
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">API key Claude — mejora interpretación de frases complejas</div>
+        <div style="display:flex;gap:6px;margin-bottom:.4rem">
+          <input id="voz-api-key" type="password" placeholder="sk-ant-..." style="flex:1;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.8rem;outline:none"/>
+          <button class="btn btn-o btn-sm" onclick="guardarApiKey()">Guardar</button>
+        </div>
+        <div style="font-size:.68rem;color:var(--dim)">Sin key funciona con reglas locales inteligentes</div>
+      </div>
+    </details>
+
+    <!-- LOG compacto -->
+    <div style="width:100%;max-width:600px;margin-top:1.2rem">
+      <div style="font-size:.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center">
+        <span>Últimas acciones</span>
+        <button onclick="vozState.historial=[];renderVozLog()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.65rem;font-family:inherit">Limpiar</button>
+      </div>
+      <div id="voz-log" style="font-size:.78rem;color:var(--muted)">Sin acciones aún.</div>
+    </div>
+  </div>
+</div>
+
+<!-- VISIÓN / CÁMARA -->
+<div id="p-vision" class="page">
+  <div class="ph"><div class="ptitle">Visión <span>Artificial</span> / Cámara</div></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('vis','scanner',this)">📷 Escáner QR/Código</button>
+    <button class="tab" onclick="switchTab('vis','foto-ia',this)">🤖 Foto → IA identifica</button>
+    <button class="tab" onclick="switchTab('vis','etiquetas',this)">🏷️ Imprimir etiquetas</button>
+  </div>
+
+  <!-- ── ESCÁNER QR ── -->
+  <div id="vis-scanner">
+    <div class="g2">
+      <div>
+        <div class="card" style="margin-bottom:.8rem">
+          <div class="ctitle">📷 Cámara en tiempo real</div>
+          <div class="cam-container" id="cam-container">
+            <video id="cam-video" autoplay playsinline muted></video>
+            <div class="cam-overlay">
+              <div class="cam-scan-box">
+                <div class="cam-scan-line"></div>
+                <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+                <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+              </div>
+            </div>
+            <canvas id="cam-canvas" style="display:none"></canvas>
+          </div>
+          <div id="scan-status" style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:.5rem">Cámara inactiva</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:.7rem;flex-wrap:wrap">
+            <button id="btn-cam-start" class="btn btn-p" onclick="iniciarCamara()">▶ Activar cámara</button>
+            <button id="btn-cam-stop" class="btn btn-o" onclick="detenerCamara()" style="display:none">■ Detener</button>
+            <button class="btn btn-o" onclick="capturarFotoIA()" id="btn-foto-ia" style="display:none">📸 Foto → IA</button>
+            <button id="btn-combine-mode" class="btn btn-o" onclick="toggleCombineMode()" style="color:var(--gold);border-color:var(--gold);font-size:.72rem">🎙+📷 Modo combinado: ON</button>
+          </div>
+        </div>
+
+        <!-- Resultado del escaneo -->
+        <div id="scan-result-box" style="display:none" class="card">
+          <div class="ctitle">✓ Código detectado</div>
+          <div id="scan-detected" style="font-size:1rem;font-weight:700;color:var(--gold);font-family:monospace;margin-bottom:.7rem"></div>
+          <div id="scan-activo-info" style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem"></div>
+          <div id="scan-prestamo-warn" style="display:none" class="alert al-warn" style="margin-bottom:.7rem"></div>
+          <!-- FLUJO COMBINADO: VOZ o LISTA para el trabajador -->
+          <div style="background:var(--bg3);border-radius:8px;padding:.8rem;margin-bottom:.8rem">
+            <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.6rem">¿Para qué trabajador?</div>
+            <!-- VOZ: nombre detectado automáticamente -->
+            <div id="scan-voz-wrap" style="display:flex;align-items:center;gap:8px;margin-bottom:.6rem">
+              <button id="scan-btn-mic" onclick="activarMicParaTrabajador()" style="width:40px;height:40px;border-radius:50%;background:var(--bg4);border:2px solid var(--border2);cursor:pointer;font-size:1.1rem;flex-shrink:0;transition:all .2s" title="Di el nombre del trabajador">🎙</button>
+              <div style="flex:1">
+                <div id="scan-voz-status" style="font-size:.75rem;color:var(--muted)">Presiona el micrófono y di el nombre</div>
+                <div id="scan-voz-nombre" style="font-size:.88rem;font-weight:600;color:var(--text);display:none"></div>
+              </div>
+              <button id="scan-voz-clear" onclick="limpiarVozTrabajador()" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem">✕</button>
+            </div>
+            <!-- SEPARADOR -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:.6rem">
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+              <span style="font-size:.68rem;color:var(--dim)">o selecciona de la lista</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+            <!-- LISTA FILTRABLE -->
+            <input id="scan-trab-filtro" type="text" placeholder="Escribe apellido para filtrar..." oninput="filtrarListaTrabajadores()" style="width:100%;padding:7px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;outline:none;margin-bottom:.4rem"/>
+            <select id="scan-trabajador" size="4" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;outline:none" onchange="seleccionarTrabajadorLista(this.value)"></select>
+          </div>
+          <!-- Trabajador confirmado -->
+          <div id="scan-trab-confirmado" style="display:none;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);border-radius:6px;padding:.6rem .9rem;margin-bottom:.7rem;font-size:.85rem;color:var(--green)">
+            ✓ Trabajador: <b id="scan-trab-nombre-conf"></b>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="scan-btn-prestar" class="btn btn-p" onclick="registrarDesdeScan('prestamo')">📤 Registrar préstamo</button>
+            <button id="scan-btn-devolver" class="btn btn-s" onclick="registrarDesdeScan('devolucion')" style="display:none">📥 Registrar devolución</button>
+            <button class="btn btn-o" onclick="resetScan()">✕ Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <!-- Historial de escaneos -->
+        <div class="card">
+          <div class="ctitle">⚡ Últimos escaneos <button class="btn btn-o btn-sm" onclick="scanLog=[];renderScanLog()" style="margin-left:auto">Limpiar</button></div>
+          <div id="scan-log-list" style="font-size:.78rem">Sin escaneos aún.</div>
+        </div>
+        <!-- Instrucciones -->
+        <div class="card" style="margin-top:.5rem">
+          <div class="ctitle">💡 Cómo usar</div>
+          <div style="font-size:.78rem;color:var(--muted);line-height:1.8">
+            <b style="color:var(--text)">1.</b> Activa la cámara<br>
+            <b style="color:var(--text)">2.</b> Apunta al código QR o sticker del equipo<br>
+            <b style="color:var(--text)">3.</b> El sistema detecta automáticamente y muestra si está disponible o prestado<br>
+            <b style="color:var(--text)">4.</b> Di el nombre del trabajador (modo combinado) o selecciona de la lista<br>
+            <b style="color:var(--text)">5.</b> Se registra automáticamente en 3 segundos o confirmas con un clic<br>
+            <b style="color:var(--gold)">Flujo ideal:</b> Activa cámara → escaneas código → dices apellido → listo ✓<br>
+            <b style="color:var(--muted)">Tip:</b> Si el código ya está prestado, aparece aviso y puedes forzar la devolución
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FOTO → IA ── -->
+  <div id="vis-foto-ia" style="display:none">
+    <div class="alert al-info">Toma una foto de cualquier herramienta o equipo — aunque no tenga etiqueta — y la IA lo identificará y buscará en el inventario.</div>
+    <div class="g2">
+      <div class="card">
+        <div class="ctitle">📸 Capturar o subir foto</div>
+        <div class="cam-container" id="foto-cam-container" style="margin-bottom:.8rem">
+          <video id="foto-video" autoplay playsinline muted></video>
+          <canvas id="foto-canvas" style="display:none"></canvas>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:.7rem">
+          <button class="btn btn-p" onclick="iniciarFotoCam()">▶ Activar cámara</button>
+          <button class="btn btn-o" id="btn-capturar-foto" onclick="capturarFoto()" style="display:none">📸 Capturar</button>
+          <label class="btn btn-o" style="cursor:pointer">📁 Subir imagen<input type="file" accept="image/*" id="foto-upload" style="display:none" onchange="procesarImagenSubida(this)"/></label>
+        </div>
+        <div id="foto-preview-wrap" style="display:none">
+          <img id="foto-preview" style="width:100%;border-radius:6px;margin-bottom:.6rem"/>
+          <button class="btn btn-p" style="width:100%" onclick="analizarFotoConIA()">🤖 Analizar con IA</button>
+        </div>
+      </div>
+      <div>
+        <div class="card" id="foto-result-card" style="display:none">
+          <div class="ctitle">🤖 Resultado del análisis</div>
+          <div id="foto-ia-resultado"></div>
+        </div>
+        <div class="card" style="margin-top:.5rem" id="foto-api-warn" style="display:none">
+          <div class="ctitle">🔑 Requiere API key</div>
+          <p style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">Para identificar herramientas con IA necesitas una API key de Claude configurada en el Asistente de Voz.</p>
+          <button class="btn btn-o btn-sm" onclick="goPage('p-voz')">→ Configurar API key</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ETIQUETAS QR ── -->
+  <div id="vis-etiquetas" style="display:none">
+    <div class="alert al-info">Genera e imprime etiquetas con código QR para pegar en cada equipo. Puedes imprimir en hoja normal A4 y cortar.</div>
+    <div class="sbar">
+      <input id="etiq-q" type="text" placeholder="🔍 Filtrar activos..." oninput="renderEtiquetas()"/>
+      <select id="etiq-tipo" onchange="renderEtiquetas()" style="padding:8px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit">
+        <option value="">Todos los tipos</option>
+        <option value="maquinaria">Maquinaria</option>
+        <option value="herramienta">Herramientas</option>
+        <option value="epp-s">EPP</option>
+      </select>
+      <button class="btn btn-p" onclick="imprimirEtiquetas()">🖨️ Imprimir seleccionadas</button>
+    </div>
+    <div id="etiquetas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px"></div>
+  </div>
+</div>
+
+
+<!-- KIOSCO PAÑOL -->
+<div id="p-kiosko" class="page" style="padding:0">
+  <!-- Admin toolbar (hidden in kiosk mode) -->
+  <div id="kiosk-admin-bar" style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <div style="font-size:.75rem;color:var(--muted)">🏪 Modo Kiosco Pañol</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-o btn-sm" onclick="goPage('p-solicitudes')">📬 Ver solicitudes</button>
+      <button class="btn btn-p btn-sm" onclick="activarModoKiosco()">🔒 Bloquear en kiosco</button>
+    </div>
+  </div>
+  <div id="kiosk-main">
+    <!-- PANTALLA INICIO -->
+    <div id="kiosk-inicio" class="kiosk-wrap">
+      <div class="kiosk-logo">⚓</div>
+      <div class="kiosk-brand">SERVING</div>
+      <div class="kiosk-sub">Pañol SIMA — Escanea tu QR personal para continuar</div>
+      <!-- Steps indicator -->
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;justify-content:center">
+        <div class="kiosk-step active" id="kstep-1">1</div>
+        <span style="font-size:.72rem;color:var(--muted)">Tu QR</span>
+        <div style="width:24px;height:1px;background:var(--border)"></div>
+        <div class="kiosk-step" id="kstep-2">2</div>
+        <span style="font-size:.72rem;color:var(--muted)">Equipo</span>
+        <div style="width:24px;height:1px;background:var(--border)"></div>
+        <div class="kiosk-step" id="kstep-3">3</div>
+        <span style="font-size:.72rem;color:var(--muted)">Confirmar</span>
+      </div>
+      <!-- Camera -->
+      <div class="kiosk-cam-wrap">
+        <video id="kiosk-video" autoplay playsinline muted></video>
+        <div class="kiosk-scan-box"><div class="kiosk-scan-inner"><div class="kiosk-scan-line"></div></div></div>
+        <canvas id="kiosk-canvas" style="display:none"></canvas>
+      </div>
+      <div id="kiosk-cam-status" style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">Activando cámara...</div>
+      <button class="btn btn-p" onclick="iniciarKiosko()" id="btn-kiosk-start">▶ Activar cámara del pañol</button>
+      <div style="margin-top:1.5rem;font-size:.72rem;color:var(--dim)">
+        ¿No tienes tu código QR? Pide al encargado tu tarjeta de identificación
+      </div>
+    </div>
+
+    <!-- PANTALLA TRABAJADOR IDENTIFICADO -->
+    <div id="kiosk-trabajador" style="display:none" class="kiosk-wrap">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:#000;margin:0 auto 1rem" id="kiosk-avatar">?</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:.2rem" id="kiosk-nombre-trab"></div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:1.5rem" id="kiosk-cargo-trab"></div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem;width:100%;max-width:360px;margin-bottom:1.2rem;text-align:left">
+        <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.6rem">Ahora escanea el QR del equipo que necesitas</div>
+        <div class="kiosk-cam-wrap" style="width:100%;height:220px;margin:0">
+          <video id="kiosk-video2" autoplay playsinline muted></video>
+          <div class="kiosk-scan-box"><div class="kiosk-scan-inner" style="width:160px;height:160px"><div class="kiosk-scan-line"></div></div></div>
+          <canvas id="kiosk-canvas2" style="display:none"></canvas>
+        </div>
+        <div id="kiosk-equipo-status" style="font-size:.78rem;color:var(--muted);margin-top:.5rem;text-align:center">Apunta al código del equipo</div>
+      </div>
+      <button class="btn btn-o" onclick="resetKiosko()" style="font-size:.78rem">✕ Cancelar / No soy yo</button>
+    </div>
+
+    <!-- PANTALLA CONFIRMAR SOLICITUD -->
+    <div id="kiosk-confirmar" style="display:none" class="kiosk-wrap">
+      <div style="font-size:2rem;margin-bottom:.5rem">📋</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.3rem">Confirma tu solicitud</div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.2rem;width:100%;max-width:360px;margin:1rem 0;text-align:left">
+        <div style="display:flex;gap:.8rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:.72rem;color:var(--muted);width:80px;flex-shrink:0">Trabajador</span>
+          <span style="font-size:.88rem;font-weight:600" id="kiosk-conf-trab"></span>
+        </div>
+        <div style="display:flex;gap:.8rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:.72rem;color:var(--muted);width:80px;flex-shrink:0">Equipo</span>
+          <div><div style="font-size:.88rem;font-weight:600" id="kiosk-conf-equipo"></div><code id="kiosk-conf-codigo" style="font-size:.72rem;color:var(--gold)"></code></div>
+        </div>
+        <div style="display:flex;gap:.8rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:.72rem;color:var(--muted);width:80px;flex-shrink:0">Acción</span>
+          <span id="kiosk-conf-accion" style="font-size:.88rem;font-weight:600;color:var(--gold)"></span>
+        </div>
+        <div style="display:flex;gap:.8rem;align-items:flex-start;padding:.6rem 0">
+          <span style="font-size:.72rem;color:var(--muted);width:80px;flex-shrink:0;margin-top:4px">Nota (opcional)</span>
+          <textarea id="kiosk-nota" rows="2" placeholder="Ej: para soldar la sección proa..." style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:6px 10px;outline:none;resize:none"></textarea>
+        </div>
+      </div>
+      <div id="kiosk-warn" style="display:none;width:100%;max-width:360px;margin-bottom:.8rem"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-p" style="padding:12px 28px;font-size:.9rem" onclick="enviarSolicitudKiosko()">✓ Enviar solicitud</button>
+        <button class="btn btn-o" onclick="volver_kiosk_paso2()">← Cambiar equipo</button>
+        <button class="btn btn-o" onclick="resetKiosko()" style="font-size:.78rem">✕ Cancelar</button>
+      </div>
+    </div>
+
+    <!-- PANTALLA ÉXITO -->
+    <div id="kiosk-exito" style="display:none" class="kiosk-wrap">
+      <div style="font-size:3rem;margin-bottom:.5rem">✅</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--green);margin-bottom:.5rem" id="kiosk-exito-msg">Solicitud enviada</div>
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:1.5rem" id="kiosk-exito-sub"></div>
+      <div style="font-size:.75rem;color:var(--dim);margin-bottom:1rem">Volviendo al inicio en <span id="kiosk-countdown" style="color:var(--gold);font-weight:700">5</span>s</div>
+      <button class="btn btn-o btn-sm" onclick="resetKiosko()">← Volver ahora</button>
+    </div>
+  </div>
+</div>
+
+<!-- SOLICITUDES PENDIENTES -->
+<div id="p-solicitudes" class="page">
+  <div class="ph">
+    <div class="ptitle">Solicitudes del <span>Pañol</span></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="sol-pend-count" class="b b-red" style="font-size:.8rem"></span>
+      <div style="display:flex;gap:6px">
+        <input id="sol-wa-num" type="tel" placeholder="51987654321" style="width:150px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.78rem;outline:none"/>
+        <button class="btn btn-wa btn-sm" onclick="notificarWA_solicitudes()">📲 WhatsApp</button>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('sols','pendientes',this)">Pendientes</button>
+    <button class="tab" onclick="switchTab('sols','historial',this)">Historial</button>
+  </div>
+  <div id="sols-pendientes"><div id="lista-solicitudes-panel"></div></div>
+  <div id="sols-historial" style="display:none">
+    <div class="card"><div class="ctitle">Historial de solicitudes del pañol</div>
+    <table><thead><tr><th>Hora</th><th>Trabajador</th><th>Equipo</th><th>Acción</th><th>Estado</th><th>Nota</th></tr></thead>
+    <tbody id="t-sol-historial"></tbody></table></div>
+  </div>
+</div>
+
+<!-- QR PERSONAL TRABAJADORES -->
+<div id="p-qr-personal" class="page">
+  <div class="ph"><div class="ptitle">QR <span>Personal</span> de Trabajadores</div><button class="btn btn-p" onclick="imprimirQRPersonal()">🖨️ Imprimir todos</button></div>
+  <div class="alert al-info">Imprime y entrega a cada trabajador su tarjeta QR. La usan para identificarse en el kiosco del pañol.</div>
+  <div class="sbar"><input id="sq-qrp" type="text" placeholder="🔍 Buscar trabajador..." oninput="renderQRPersonal()"/></div>
+  <div id="qr-personal-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+</div>
+
+
+<!-- CONFIGURACIÓN -->
+<div id="p-config" class="page">
+  <div class="ph"><div class="ptitle">Configuración del <span>Sistema</span></div></div>
+  <div class="g2">
+    <div class="card">
+      <div class="ctitle">📍 Punto de trabajo (GPS)</div>
+      <div class="alert al-warn">Solo administradores pueden modificar la ubicación GPS.</div>
+      <div class="frow">
+        <div class="ff"><label>Latitud</label><input id="cfg-lat" type="number" step="0.000001"/></div>
+        <div class="ff"><label>Longitud</label><input id="cfg-lng" type="number" step="0.000001"/></div>
+      </div>
+      <div class="ff ff1">
+        <label>Radio de detección (metros)
+          <span style="font-size:.65rem;color:var(--muted);font-weight:400;margin-left:6px">— recomendado 150-300m para celulares</span>
+        </label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input id="cfg-radio-range" type="range" min="50" max="1000" step="25" style="flex:1" oninput="document.getElementById('cfg-radio').value=this.value;document.getElementById('cfg-radio-label').textContent=this.value"/>
+          <input id="cfg-radio" type="number" min="50" max="5000" style="width:80px" oninput="document.getElementById('cfg-radio-range').value=this.value;document.getElementById('cfg-radio-label').textContent=this.value"/>
+          <span style="color:var(--muted);font-size:.8rem">m</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.8rem">
+        <button class="btn btn-b btn-sm" onclick="abrirMapa()">🗺 Ver en mapa</button>
+        <button class="btn btn-o btn-sm" onclick="usarMiUbicacion()">📍 Usar mi ubicación actual</button>
+      </div>
+      <div class="alert al-info">Radio actual: <b id="cfg-radio-label">500</b>m</div>
+      <div class="factions"><button class="btn btn-p" onclick="guardarConfig()">Guardar configuración GPS</button></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">🎨 Apariencia</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Tema oscuro para noche, claro para día.</p>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-o" onclick="setTheme('dark')" style="flex:1">🌙 Oscuro</button>
+        <button class="btn btn-o" onclick="setTheme('light')" style="flex:1">☀ Claro</button>
+      </div>
+      <div style="margin-top:.8rem;font-size:.78rem;color:var(--muted)">Actual: <b id="cfg-tema-lbl" style="color:var(--gold)">Oscuro</b></div>
+    </div>
+  </div>
+  <!-- Supabase -->
+  <div class="card" style="margin-top:1rem">
+    <div class="ctitle">☁ Base de datos (Supabase)</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.8rem">
+      <span style="font-size:.82rem;color:var(--muted)">Estado:</span>
+      <span id="supa-status" style="font-size:.82rem">verificando...</span>
+    </div>
+    <div style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">
+      Primera vez: presiona "Subir datos" para enviar todos los datos a la nube.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p" onclick="seedSupabase()">⬆ Subir datos locales a Supabase</button>
+      <button class="btn btn-o" onclick="loadFromSupabase().then(()=>{showToast('Recargado');renderDashboard();})">⬇ Recargar desde Supabase</button>
+    </div>
+  </div>
+
+  <!-- Mapa interactivo -->
+  <div id="mapa-container" style="display:none;margin-top:1rem">
+    <div class="card">
+      <div class="ctitle">🗺 Haz clic en el mapa para establecer el punto de trabajo
+        <button class="btn btn-o btn-sm" onclick="cerrarMapa()">✕ Cerrar</button>
+      </div>
+      <div class="alert al-info">📍 <b>Haz clic en cualquier punto del mapa</b> para establecerlo como centro de trabajo. Las coordenadas se actualizarán en los campos de arriba automáticamente.</div>
+      <div id="map-container" style="position:relative;width:100%;height:430px;border-radius:8px;border:1px solid var(--border2);overflow:hidden;background:#e8e0d8;cursor:crosshair">
+        <canvas id="map-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+        <div style="position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:10">
+          <button onclick="mapZoom(1)" style="width:30px;height:30px;background:white;border:1px solid #ccc;border-radius:4px;font-size:1.1rem;cursor:pointer;font-weight:700">+</button>
+          <span id="map-zoom-label" style="background:rgba(255,255,255,.8);text-align:center;font-size:.65rem;padding:2px;border-radius:3px;color:#444">Z:16</span>
+          <button onclick="mapZoom(-1)" style="width:30px;height:30px;background:white;border:1px solid #ccc;border-radius:4px;font-size:1.1rem;cursor:pointer;font-weight:700">−</button>
+        </div>
+        <div style="position:absolute;bottom:6px;left:6px;font-size:.7rem;color:#555;background:rgba(255,255,255,.85);padding:2px 8px;border-radius:4px">🖱 Clic para seleccionar · Arrastra para mover · Scroll para zoom</div>
+        <div style="position:absolute;bottom:6px;right:6px;font-size:.65rem;color:#666;background:rgba(255,255,255,.8);padding:2px 6px;border-radius:3px">© OpenStreetMap</div>
+        <div id="map-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg3);font-size:.85rem;color:var(--muted)">Cargando mapa...</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:.7rem;flex-wrap:wrap">
+        <span style="font-size:.8rem;color:var(--muted)">Punto seleccionado:</span>
+        <span id="mapa-coords-label" style="font-size:.8rem;color:var(--gold);font-family:monospace">Haz clic en el mapa</span>
+        <button class="btn btn-p btn-sm" id="btn-confirmar-mapa" disabled onclick="confirmarPuntoMapa()">✓ Usar este punto</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- MODAL CAMBIAR CONTRASEÑA -->
+<div class="mo" id="m-cambiar-pass">
+<div class="mb" style="max-width:400px">
+  <div class="mh"><div class="mt">🔑 Cambiar Contraseña</div><button class="mc" onclick="closeModal('m-cambiar-pass')">✕</button></div>
+  <div style="background:var(--bg3);border-radius:6px;padding:.7rem 1rem;margin-bottom:1rem;font-size:.82rem;color:var(--muted)">
+    Usuario: <b id="cp-username" style="color:var(--text)"></b>
+  </div>
+  <div class="ff ff1"><label>Contraseña actual</label><input id="cp-actual" type="password" placeholder="Contraseña actual"/></div>
+  <div class="ff ff1"><label>Nueva contraseña</label><input id="cp-nueva" type="password" placeholder="Mínimo 4 caracteres"/></div>
+  <div class="ff ff1"><label>Confirmar nueva contraseña</label><input id="cp-confirmar" type="password" placeholder="Repite la nueva contraseña"/></div>
+  <div class="factions">
+    <button class="btn btn-o" onclick="closeModal('m-cambiar-pass')">Cancelar</button>
+    <button class="btn btn-p" onclick="guardarNuevaContrasena()">✓ Cambiar contraseña</button>
+  </div>
+</div>
+</div>
+
+
+<!-- MODAL ERROR DEBUG -->
+<div class="mo" id="m-error-debug" style="z-index:9999">
+<div class="mb" style="max-width:560px">
+  <div class="mh"><div class="mt" style="color:var(--red)">⚠ Error</div><button class="mc" onclick="closeModal('m-error-debug')">✕</button></div>
+  <div id="error-debug-msg" style="font-family:monospace;font-size:.75rem;background:var(--bg3);padding:1rem;border-radius:8px;white-space:pre-wrap;word-break:break-all;max-height:50vh;overflow-y:auto"></div>
+  <div class="factions" style="margin-top:.8rem">
+    <button class="btn btn-o" onclick="navigator.clipboard?.writeText(document.getElementById('error-debug-msg').textContent).then(()=>showToast('Copiado'))">📋 Copiar</button>
+    <button class="btn btn-p" onclick="closeModal('m-error-debug')">Cerrar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL EDITAR ASISTENCIA -->
+<div class="mo" id="m-edit-asis">
+<div class="mb" style="max-width:420px">
+  <div class="mh"><div class="mt">✏ Editar Asistencia</div><button class="mc" onclick="closeModal('m-edit-asis')">✕</button></div>
+  <input type="hidden" id="edit-asis-id"/>
+  <div style="background:var(--bg3);border-radius:6px;padding:.8rem;margin-bottom:1rem;font-size:.82rem">
+    <span style="color:var(--muted)">Trabajador: </span><b id="edit-asis-nombre"></b><br>
+    <span style="color:var(--muted)">Fecha: </span><b id="edit-asis-fecha"></b>
+  </div>
+  <div class="frow">
+    <div class="ff">
+      <label>Hora de entrada</label>
+      <input id="edit-asis-entrada" type="time" step="60"/>
+    </div>
+    <div class="ff">
+      <label>Hora de salida</label>
+      <input id="edit-asis-salida" type="time" step="60"/>
+      <span style="font-size:.65rem;color:var(--muted)">Dejar vacío si aún no ha salido</span>
+    </div>
+  </div>
+  <div id="edit-asis-preview" style="background:var(--bg3);border-radius:6px;padding:.7rem;font-size:.8rem;margin-top:.5rem"></div>
+  <div class="factions">
+    <button class="btn btn-d btn-sm" onclick="eliminarAsistencia()">🗑 Eliminar registro</button>
+    <button class="btn btn-o" onclick="closeModal('m-edit-asis')">Cancelar</button>
+    <button class="btn btn-p" onclick="guardarEditAsistencia()">✓ Guardar cambios</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL AGREGAR DÍA ANTERIOR -->
+<div class="mo" id="m-agregar-dia">
+<div class="mb" style="max-width:460px">
+  <div class="mh">
+    <div class="mt">📅 Agregar registro de día anterior</div>
+    <button class="mc" onclick="closeModal('m-agregar-dia')">✕</button>
+  </div>
+
+  <!-- Selector de trabajador (solo admin/estándar lo ve) -->
+  <div id="agregar-dia-worker-wrap" style="display:none;margin-bottom:1rem">
+    <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:5px">Trabajador</label>
+    <select id="agregar-dia-worker" onchange="actualizarInfoDiaAnterior()" style="width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.88rem">
+      <option value="">— Selecciona trabajador —</option>
+    </select>
+  </div>
+
+  <!-- Fecha -->
+  <div class="frow" style="margin-bottom:.2rem">
+    <div class="ff">
+      <label>Fecha</label>
+      <input id="agregar-dia-fecha" type="date" onchange="actualizarInfoDiaAnterior()" style="width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.88rem"/>
+    </div>
+  </div>
+
+  <!-- Alerta si ya existe registro ese día -->
+  <div id="agregar-dia-alerta" style="display:none;margin:.6rem 0;padding:8px 12px;border-radius:8px;font-size:.78rem"></div>
+
+  <!-- Horas -->
+  <div class="frow">
+    <div class="ff">
+      <label>Hora de entrada</label>
+      <input id="agregar-dia-entrada" type="time" step="60" value="08:00" oninput="actualizarPreviewDiaAnterior()"/>
+    </div>
+    <div class="ff">
+      <label>Hora de salida</label>
+      <input id="agregar-dia-salida" type="time" step="60" value="17:00" oninput="actualizarPreviewDiaAnterior()"/>
+      <span style="font-size:.65rem;color:var(--muted)">Dejar vacío si no hubo salida</span>
+    </div>
+  </div>
+
+  <!-- Preview de horas calculadas -->
+  <div id="agregar-dia-preview" style="background:var(--bg3);border-radius:8px;padding:.8rem;font-size:.8rem;margin-top:.6rem;min-height:36px"></div>
+
+  <!-- Nota opcional -->
+  <div style="margin-top:.8rem">
+    <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:5px">Nota (opcional)</label>
+    <input id="agregar-dia-nota" type="text" placeholder="Ej: Registro manual, olvidé marcar..." style="width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.82rem;box-sizing:border-box"/>
+  </div>
+
+  <div class="factions" style="margin-top:1.2rem">
+    <button class="btn btn-o" onclick="closeModal('m-agregar-dia')">Cancelar</button>
+    <button class="btn btn-p" id="btn-confirmar-dia" onclick="confirmarAgregarDiaAnterior()">✓ Guardar registro</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════ MODALES ══════ -->
+
+<div class="mo" id="m-activo">
+<div class="mb">
+  <div class="mh"><div class="mt" id="m-activo-t">Nuevo Activo</div><button class="mc" onclick="closeModal('m-activo')">✕</button></div>
+  <input type="hidden" id="act-id-edit"/>
+  <div class="tabs" style="margin-bottom:.9rem">
+    <button class="tab active" onclick="switchModalTab('act-tipo','maquinaria',this)">Maquinaria</button>
+    <button class="tab" onclick="switchModalTab('act-tipo','herramienta',this)">Herramienta</button>
+    <button class="tab" onclick="switchModalTab('act-tipo','epp-s',this)">EPP Stock</button>
+    <button class="tab" onclick="switchModalTab('act-tipo','consumible',this)">Consumible</button>
+  </div>
+  <div id="act-tipo-maquinaria">
+    <div class="frow"><div class="ff"><label>Código</label><input id="am-cod" placeholder="MAQ-010 (vacío = autogenerar)"/></div><div class="ff"><label>Subcategoría</label><select id="am-cat"><option>Máquina de soldar MIG</option><option>Máquina de soldar TIG</option><option>Máquina de apuntalar</option><option>Esmeril pequeño (baby)</option><option>Esmeril grande</option><option>Cortadora plasma</option><option>Taladro industrial</option><option>Dobladora</option><option>Otro</option></select></div></div>
+    <div class="frow"><div class="ff"><label>Descripción</label><input id="am-desc" placeholder="Lincoln Electric MIG 250A"/></div><div class="ff"><label>N° serie</label><input id="am-serie" placeholder="SN-12345"/></div></div>
+    <div class="frow"><div class="ff"><label>Fecha adquisición</label><input id="am-ano" type="date"/></div><div class="ff"><label>Valor (S/)</label><input id="am-valor" type="number" value="0"/></div></div>
+    <div class="frow"><div class="ff"><label>Mantenimiento</label><select id="am-mant"><option>Mensual</option><option>Trimestral</option><option>Semestral</option><option>Anual</option><option>No aplica</option></select></div><div class="ff"><label>Estado</label><select id="am-estado"><option>Operativo</option><option>Mantenimiento</option><option>Dado de baja</option></select></div></div>
+    <div class="ff ff1"><label>Ubicación</label><input id="am-ubic" placeholder="Almacén A, Estante 3..."/></div>
+    <div class="ff ff1"><label>Notas</label><input id="am-notas" placeholder="Voltaje, accesorios..."/></div>
+    <div class="ff ff1"><label>Apodos / Alias <span style="font-size:.65rem;color:var(--muted)">(ej: baby, pistola, yeso)</span></label><input id="am-apodos" placeholder="baby, pistola"/></div>
+  </div>
+  <div id="act-tipo-herramienta" style="display:none">
+    <div class="frow"><div class="ff"><label>Código</label><input id="ah-cod" placeholder="HER-001"/></div><div class="ff"><label>Categoría</label><select id="ah-cat"><option>Regla/Nivel</option><option>Manguera</option><option>Boquilla acetileno</option><option>Llave/Torquímetro</option><option>Medición</option><option>Otro</option></select></div></div>
+    <div class="frow"><div class="ff"><label>Descripción</label><input id="ah-desc" placeholder="Regla 2m acero inox"/></div><div class="ff"><label>Cantidad total</label><input id="ah-qty" type="number" value="1" min="1"/></div></div>
+    <div class="frow"><div class="ff"><label>Ubicación</label><input id="ah-ubic" placeholder="Almacén B, caja 5..."/></div><div class="ff"><label>Estado</label><select id="ah-estado"><option>Operativo</option><option>Mantenimiento</option><option>Dado de baja</option></select></div></div>
+  </div>
+  <div id="act-tipo-epp-s" style="display:none">
+    <div class="frow"><div class="ff"><label>Código</label><input id="ae-cod" placeholder="EPP-001"/></div><div class="ff"><label>Tipo EPP</label><select id="ae-tipo"><option>Casco de seguridad</option><option>Botas de punta de acero</option><option>Guantes de cuero</option><option>Lentes de seguridad</option><option>Chaleco reflectivo</option><option>Protector auditivo</option><option>Mascarilla respiratoria</option><option>Arnés de seguridad</option><option>Careta de soldar</option><option>Ropa ignífuga</option></select></div></div>
+    <div class="frow"><div class="ff"><label>Stock</label><input id="ae-stock" type="number" value="0"/></div><div class="ff"><label>Stock mínimo</label><input id="ae-min" type="number" value="5"/></div></div>
+    <div class="ff ff1"><label>Proveedor</label><input id="ae-prov" placeholder="Proveedor..."/></div>
+  </div>
+  <div id="act-tipo-consumible" style="display:none">
+    <div class="frow"><div class="ff"><label>Código</label><input id="ac-cod" placeholder="CONS-001"/></div><div class="ff"><label>Descripción</label><input id="ac-desc" placeholder="Electrodo E7018 3.2mm"/></div></div>
+    <div class="frow"><div class="ff"><label>Categoría</label><select id="ac-cat"><option>Electrodos</option><option>Discos de corte</option><option>Discos de desbaste</option><option>Gas</option><option>Boquillas</option><option>Mangueras</option><option>Pintura</option><option>Otro</option></select></div><div class="ff"><label>Unidad</label><select id="ac-unidad"><option>kg</option><option>unidad</option><option>metro</option><option>litro</option><option>caja</option><option>rollo</option></select></div></div>
+    <div class="frow"><div class="ff"><label>Stock inicial</label><input id="ac-stock" type="number" value="0"/></div><div class="ff"><label>Stock mínimo</label><input id="ac-min" type="number" value="5"/></div></div>
+    <div class="frow"><div class="ff"><label>Proveedor</label><input id="ac-prov" placeholder="Proveedor..."/></div><div class="ff"><label>Precio unitario S/</label><input id="ac-precio" type="number" value="0" step="0.01"/></div></div>
+  </div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-activo')">Cancelar</button><button class="btn btn-p" onclick="guardarActivo()">Guardar</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-prestamo">
+<div class="mb">
+  <div class="mh"><div class="mt">Registrar Préstamo</div><button class="mc" onclick="closeModal('m-prestamo')">✕</button></div>
+  <div class="frow"><div class="ff"><label>Activo a prestar</label><select id="p-activo" style="width:100%"></select></div><div class="ff"><label>Trabajador</label><select id="p-trab" style="width:100%"></select></div></div>
+  <div class="frow"><div class="ff"><label>Fecha y hora</label><input id="p-fecha" type="datetime-local"/></div><div class="ff"><label>Almacenero responsable</label><input id="p-resp" placeholder="Nombre del almacenero"/></div></div>
+  <div class="ff ff1"><label>Observaciones</label><input id="p-obs" placeholder="Condición, accesorios..."/></div>
+  <div id="prest-conflicto" style="display:none"></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-prestamo')">Cancelar</button><button class="btn btn-p" onclick="guardarPrestamo()">Registrar</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-sima">
+<div class="mb">
+  <div class="mh"><div class="mt">Registrar Pieza SIMA</div><button class="mc" onclick="closeModal('m-sima')">✕</button></div>
+  <input type="hidden" id="sima-id-edit"/>
+  <div class="frow"><div class="ff"><label>Código SIMA</label><input id="si-cod" placeholder="SIMA-001"/></div><div class="ff"><label>Módulo / Proyecto</label><input id="si-mod" placeholder="Módulo popa, OPV..."/></div></div>
+  <div class="frow"><div class="ff"><label>Descripción</label><input id="si-desc" placeholder="Plancha acero 10mm 2x1m"/></div><div class="ff"><label>Categoría</label><select id="si-cat"><option>Planchas/Perfiles</option><option>Tuberías</option><option>Pernería/Tornillería</option><option>Componentes mecánicos</option><option>Componentes eléctricos</option><option>Pinturas/Recubrimientos</option><option>Estructuras</option><option>Otro</option></select></div></div>
+  <div class="frow"><div class="ff"><label>Cantidad</label><input id="si-qty" type="number" value="1" min="1"/></div><div class="ff"><label>Unidad</label><select id="si-unidad"><option>unidad</option><option>kg</option><option>metro</option><option>m²</option><option>juego</option><option>caja</option></select></div></div>
+  <div class="frow"><div class="ff"><label>Fecha recepción</label><input id="si-fecha" type="date"/></div><div class="ff"><label>Ubicación en almacén</label><input id="si-ubic" placeholder="Bahía 3, Zona SIMA..."/></div></div>
+  <div class="frow"><div class="ff"><label>Recibido por</label><input id="si-almac" placeholder="Almacenero..."/></div><div class="ff"><label>Estado</label><select id="si-estado"><option>En almacén</option><option>En uso</option><option>Instalado</option><option>Devuelto a SIMA</option></select></div></div>
+  <div class="ff ff1"><label>Observaciones</label><input id="si-obs" placeholder="Condición, especificaciones..."/></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-sima')">Cancelar</button><button class="btn btn-p" onclick="guardarPiezaSIMA()">Registrar</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-cons-uso">
+<div class="mb">
+  <div class="mh"><div class="mt">Registrar Uso de Consumible</div><button class="mc" onclick="closeModal('m-cons-uso')">✕</button></div>
+  <div class="frow"><div class="ff"><label>Consumible</label><select id="cu-item" style="width:100%"></select></div><div class="ff"><label>Trabajador</label><select id="cu-trab" style="width:100%"></select></div></div>
+  <div class="frow"><div class="ff"><label>Cantidad usada</label><input id="cu-qty" type="number" value="1" min="0.1" step="0.1"/></div><div class="ff"><label>Obra / Tarea</label><input id="cu-obra" placeholder="Módulo popa, sección 3..."/></div></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-cons-uso')">Cancelar</button><button class="btn btn-p" onclick="guardarUsoConsumible()">Registrar</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-cons-compra">
+<div class="mb">
+  <div class="mh"><div class="mt">Registrar Compra / Reposición</div><button class="mc" onclick="closeModal('m-cons-compra')">✕</button></div>
+  <div class="frow"><div class="ff"><label>Consumible</label><select id="cc-item" style="width:100%"></select></div><div class="ff"><label>Cantidad</label><input id="cc-qty" type="number" value="1" min="0.1" step="0.1"/></div></div>
+  <div class="frow"><div class="ff"><label>Proveedor</label><input id="cc-prov" placeholder="Soldex, AGA..."/></div><div class="ff"><label>Precio total S/</label><input id="cc-precio" type="number" value="0" step="0.01"/></div></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-cons-compra')">Cancelar</button><button class="btn btn-s" onclick="guardarCompraConsumible()">Registrar entrada</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-mant">
+<div class="mb">
+  <div class="mh"><div class="mt">Registrar Mantenimiento</div><button class="mc" onclick="closeModal('m-mant')">✕</button></div>
+  <div class="frow"><div class="ff"><label>Activo</label><select id="mn-activo" style="width:100%"></select></div><div class="ff"><label>Tipo</label><select id="mn-tipo"><option>Preventivo</option><option>Correctivo</option><option>Revisión</option><option>Calibración</option></select></div></div>
+  <div class="frow"><div class="ff"><label>Fecha</label><input id="mn-fecha" type="date"/></div><div class="ff"><label>Técnico</label><input id="mn-tecnico" placeholder="Nombre del técnico"/></div></div>
+  <div class="frow"><div class="ff"><label>Costo S/</label><input id="mn-costo" type="number" value="0" step="0.01"/></div><div class="ff"><label>Estado</label><select id="mn-estado"><option>Programado</option><option>En proceso</option><option>Completado</option></select></div></div>
+  <div class="ff ff1"><label>Descripción</label><input id="mn-desc" placeholder="Descripción del trabajo..."/></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-mant')">Cancelar</button><button class="btn btn-p" onclick="guardarMantenimiento()">Guardar</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-epp-asig">
+<div class="mb">
+  <div class="mh"><div class="mt">Asignar EPP</div><button class="mc" onclick="closeModal('m-epp-asig')">✕</button></div>
+  <div class="frow"><div class="ff"><label>Trabajador</label><select id="ea-trab" style="width:100%"></select></div><div class="ff"><label>EPP</label><select id="ea-tipo"><option>Casco de seguridad</option><option>Botas de punta de acero</option><option>Guantes de cuero</option><option>Lentes de seguridad</option><option>Chaleco reflectivo</option><option>Protector auditivo</option><option>Mascarilla respiratoria</option><option>Arnés de seguridad</option><option>Careta de soldar</option><option>Ropa ignífuga</option></select></div></div>
+  <div class="frow"><div class="ff"><label>Talla</label><input id="ea-talla" placeholder="L, XL, 42..."/></div><div class="ff"><label>Entregado por</label><input id="ea-resp" placeholder="Responsable..."/></div></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-epp-asig')">Cancelar</button><button class="btn btn-p" onclick="guardarEPP()">Registrar</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-trabajador">
+<div class="mb">
+  <div class="mh"><div class="mt" id="mt-titulo">Nuevo Trabajador</div><button class="mc" onclick="closeModal('m-trabajador')">✕</button></div>
+  <input type="hidden" id="wid"/>
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+    <div id="w-foto-preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden;flex-shrink:0">👤</div>
+    <div>
+      <input type="file" id="w-foto-file" accept="image/*" style="display:none" onchange="previewFotoTrab(this)"/>
+      <button class="btn btn-o btn-sm" onclick="document.getElementById('w-foto-file').click()">📷 Subir foto</button>
+      <div style="font-size:.65rem;color:var(--muted);margin-top:4px">JPG/PNG, máx 2MB</div>
+    </div>
+    <input type="hidden" id="w-foto-data"/>
+  </div>
+  <div class="frow"><div class="ff"><label>Nombre completo</label><input id="w-nombre" placeholder="Apellidos, Nombres"/></div><div class="ff"><label>DNI</label><input id="w-dni" placeholder="12345678"/></div></div>
+  <div class="frow"><div class="ff"><label>Cargo</label><input id="w-cargo" placeholder="Soldador, Calderero..."/></div><div class="ff"><label>Especialidad</label><input id="w-esp" placeholder="MIG, TIG, Oxicorte..."/></div></div>
+  <div class="frow"><div class="ff"><label>Contrato</label><select id="w-contrato"><option>Por hora</option><option>Por destajo</option><option>Mensual</option></select></div><div class="ff"><label>Tarifa / hora S/</label><input id="w-tarifa" type="number" value="15" step="0.5"/></div></div>
+  <div class="frow"><div class="ff"><label>Email</label><input id="w-email" type="email" placeholder="correo@email.com"/></div><div class="ff"><label>Teléfono</label><input id="w-tel" placeholder="987654321"/></div></div>
+  <div class="frow"><div class="ff"><label>Fecha ingreso</label><input id="w-ingreso" type="date"/></div><div class="ff"><label>🎂 Cumpleaños</label><input id="w-cumple" type="date"/></div></div>
+  <div class="frow"><div class="ff ff1"><label>Apodos <span style="font-size:.65rem;color:var(--muted)">(separar con coma: zombie, tío)</span></label><input id="w-apodos" placeholder="zombie, tío, z"/></div></div>
+  <div class="frow"><div class="ff"><label>Estado</label><select id="w-estado"><option>Activo</option><option>Inactivo</option><option>Vacaciones</option></select></div><div class="ff"></div></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-trabajador')">Cancelar</button><button class="btn btn-p" onclick="guardarTrabajador()">Guardar</button></div>
+</div>
+</div>
+
+<div class="mo" id="m-usuario">
+<div class="mb" style="max-width:480px">
+  <div class="mh"><div class="mt">Nuevo Usuario del Sistema</div><button class="mc" onclick="closeModal('m-usuario')">✕</button></div>
+
+  <!-- Tipo de usuario -->
+  <div class="ff ff1" style="margin-bottom:12px">
+    <label>¿Qué tipo de usuario es?</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px" id="u-tipo-grid">
+      <button type="button" class="u-tipo-btn active" data-tipo="Trabajador SERVING" onclick="selTipoUsuario(this)" style="padding:8px;border:1px solid var(--gold);background:rgba(240,165,0,.12);border-radius:6px;color:var(--gold);font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:600">👷 Trabajador SERVING</button>
+      <button type="button" class="u-tipo-btn" data-tipo="Visitante" onclick="selTipoUsuario(this)" style="padding:8px;border:1px solid var(--border);background:var(--bg3);border-radius:6px;color:var(--muted);font-size:.78rem;cursor:pointer;font-family:inherit">🪪 Visitante</button>
+      <button type="button" class="u-tipo-btn" data-tipo="Consultor Externo" onclick="selTipoUsuario(this)" style="padding:8px;border:1px solid var(--border);background:var(--bg3);border-radius:6px;color:var(--muted);font-size:.78rem;cursor:pointer;font-family:inherit">💼 Consultor externo</button>
+      <button type="button" class="u-tipo-btn" data-tipo="Cocinera" onclick="selTipoUsuario(this)" style="padding:8px;border:1px solid var(--border);background:var(--bg3);border-radius:6px;color:var(--muted);font-size:.78rem;cursor:pointer;font-family:inherit">🍽 Cocinera</button>
+      <button type="button" class="u-tipo-btn" data-tipo="Personal SIMA" onclick="selTipoUsuario(this)" style="padding:8px;border:1px solid var(--border);background:var(--bg3);border-radius:6px;color:var(--muted);font-size:.78rem;cursor:pointer;font-family:inherit">⚓ Personal SIMA</button>
+      <button type="button" class="u-tipo-btn" data-tipo="Contrata" onclick="selTipoUsuario(this)" style="padding:8px;border:1px solid var(--border);background:var(--bg3);border-radius:6px;color:var(--muted);font-size:.78rem;cursor:pointer;font-family:inherit">🏗 Contrata externa</button>
+    </div>
+    <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
+      <button type="button" class="u-tipo-btn" data-tipo="" onclick="selTipoUsuario(this)" style="padding:6px 12px;border:1px solid var(--border);background:var(--bg3);border-radius:6px;color:var(--muted);font-size:.75rem;cursor:pointer;font-family:inherit;flex-shrink:0">✏ Otro:</button>
+      <input id="u-tipo-otro" placeholder="Especifica el tipo..." style="flex:1;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.82rem;font-family:inherit" oninput="document.getElementById('u-tipo-hidden').value=this.value"/>
+    </div>
+    <input type="hidden" id="u-tipo-hidden" value="Trabajador SERVING"/>
+  </div>
+
+  <div class="frow"><div class="ff"><label>Nombre completo</label><input id="u-nombre" placeholder="Apellidos, Nombres"/></div><div class="ff"><label>Usuario <span style="font-size:.65rem;color:var(--muted)">(para el login)</span></label><input id="u-email" placeholder="usuario o email"/></div></div>
+  <div class="frow">
+    <div class="ff"><label>Contraseña</label><input id="u-pass" type="password" placeholder="Mínimo 4 caracteres"/></div>
+    <div class="ff"><label>Nivel de acceso</label>
+      <select id="u-rol">
+        <option value="Admin">🔑 Admin</option>
+        <option value="Estandar">🔧 Estándar (almacén)</option>
+        <option value="Lectura" selected>👁 Solo lectura</option>
+      </select>
+    </div>
+  </div>
+  <div class="factions">
+    <button class="btn btn-o" onclick="closeModal('m-usuario')">Cancelar</button>
+    <button class="btn btn-p" onclick="guardarUsuario()">Crear usuario</button>
+  </div>
+</div>
+</div>
+
+<div class="mo" id="m-proyecto">
+<div class="mb">
+  <div class="mh"><div class="mt" id="mproy-titulo">Nuevo Proyecto</div><button class="mc" onclick="closeModal('m-proyecto')">✕</button></div>
+  <input type="hidden" id="proy-id-edit"/>
+  <div class="frow"><div class="ff"><label>Nombre del proyecto</label><input id="proy-nombre" placeholder="BALOG 1, OPV, MCGP..."/></div><div class="ff"><label>Cliente / Contratante</label><input id="proy-cliente" placeholder="Marina de Guerra, SIMA..."/></div></div>
+  <div class="frow"><div class="ff"><label>Fecha inicio</label><input id="proy-inicio" type="date"/></div><div class="ff"><label>Fecha fin estimada</label><input id="proy-fin" type="date"/></div></div>
+  <div class="frow"><div class="ff"><label>Avance general (%)</label><input id="proy-pct" type="number" value="0" min="0" max="100"/></div><div class="ff"><label>Estado</label><select id="proy-estado"><option>En ejecución</option><option>Pausado</option><option>Completado</option><option>Licitado</option></select></div></div>
+  <div class="ff ff1"><label>Descripción</label><textarea id="proy-desc" rows="2" style="width:100%;resize:vertical" placeholder="Descripción del proyecto..."></textarea></div>
+  <div style="margin-bottom:.6rem;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Fases del proyecto (haz clic para editar)</div>
+  <div id="fases-edit"></div>
+  <button class="btn btn-o btn-sm" onclick="agregarFase()" style="margin-bottom:.9rem">+ Agregar fase</button>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-proyecto')">Cancelar</button><button class="btn btn-p" onclick="guardarProyecto()">Guardar</button></div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/data.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/recepcion.js"></script>
+<script src="js/prestamo_rapido.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/activos.js"></script>
+<script src="js/almacen.js"></script>
+<script src="js/epp.js"></script>
+<script src="js/notificaciones.js"></script>
+<script src="js/asistencia.js"></script>
+<script src="js/horas.js"></script>
+<script src="js/trabajadores.js"></script>
+<script src="js/proyectos.js"></script>
+<script src="js/config_page.js"></script>
+<script src="js/mapa.js"></script>
+<script src="js/pagos.js"></script>
+<script src="js/voz.js"></script>
+<script src="js/vision.js"></script>
+<script src="js/kiosko.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/qr_personal.js"></script>
+<script src="js/init.js"></script>
+
+<!-- MODAL EDITAR USUARIO -->
+<div class="mo" id="m-edit-usuario">
+<div class="mb" style="max-width:420px">
+  <div class="mh"><div class="mt">✏ Editar Usuario</div><button class="mc" onclick="closeModal('m-edit-usuario')">✕</button></div>
+  <input type="hidden" id="eu-id"/>
+  <div class="frow">
+    <div class="ff"><label>Nombre</label><input id="eu-nombre" placeholder="Nombre completo"/></div>
+    <div class="ff"><label>Usuario (login)</label><input id="eu-username" placeholder="username o DNI"/></div>
+  </div>
+  <div class="frow">
+    <div class="ff"><label>Nueva contraseña <span style="font-size:.65rem;color:var(--muted)">(vacío = no cambiar)</span></label><input id="eu-pass" type="password" placeholder="Nueva clave..."/></div>
+    <div class="ff"><label>Nivel</label>
+      <select id="eu-nivel">
+        <option value="Admin">🔑 Admin</option>
+        <option value="Estandar">🔧 Estándar</option>
+        <option value="Lectura">👁 Solo lectura</option>
+      </select>
+    </div>
+  </div>
+  <div class="ff ff1"><label>Estado</label>
+    <select id="eu-estado"><option value="Activo">Activo</option><option value="Inactivo">Inactivo</option></select>
+  </div>
+  <div class="factions">
+    <button class="btn btn-o" onclick="closeModal('m-edit-usuario')">Cancelar</button>
+    <button class="btn btn-p" onclick="guardarEditUsuario()">✓ Guardar cambios</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL NUEVO VALE -->
+<div class="mo" id="m-nuevo-vale">
+<div class="mb" style="max-width:460px">
+  <div class="mh"><div class="mt">📦 Nuevo Vale de Recepción</div><button class="mc" onclick="closeModal('m-nuevo-vale')">✕</button></div>
+  <div class="frow">
+    <div class="ff"><label>Número de vale</label><input id="vale-numero" placeholder="V-2024-001"/></div>
+    <div class="ff"><label>Fecha</label><input id="vale-fecha" type="date"/></div>
+  </div>
+  <div class="frow">
+    <div class="ff">
+      <label>Proyecto</label>
+      <select id="vale-proyecto" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit"></select>
+    </div>
+    <div class="ff"><label>Módulo</label><input id="vale-modulo" placeholder="Ej: Módulo Popa, BALOG 1-A..."/></div>
+  </div>
+  <div class="ff ff1"><label>Recibido por</label><input id="vale-recibido" placeholder="Nombre del almacenero"/></div>
+  <div class="ff ff1"><label>Observaciones <span style="color:var(--muted);font-size:.65rem">(opcional)</span></label><input id="vale-obs" placeholder="Descripción del lote, procedencia..."/></div>
+  <div class="factions">
+    <button class="btn btn-o" onclick="closeModal('m-nuevo-vale')">Cancelar</button>
+    <button class="btn btn-p" onclick="confirmarNuevoVale()">Crear vale</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL DETALLE ACTIVO -->
+<div class="mo" id="m-det-activo">
+<div class="mb" style="max-width:560px">
+  <div class="mh"><div class="mt">📋 Ficha del Activo</div><button class="mc" onclick="closeModal('m-det-activo')">✕</button></div>
+  <div id="det-activo-body"></div>
+  <div class="factions"><button class="btn btn-o" onclick="closeModal('m-det-activo')">Cerrar</button></div>
+</div>
+</div>
+</body>
+</html>
